@@ -1,171 +1,149 @@
 import './focus2.css';
 
-const draggable = document.getElementById('draggable');
-let isDragging = false;
-let offsetX, offsetY;
-
-draggable.addEventListener('touchstart', function (e) {
-    e.preventDefault();
-});
-
-draggable.addEventListener('mousedown', startDrag);
-document.addEventListener('mousemove', drag);
-document.addEventListener('mouseup', stopDrag);
-
-draggable.addEventListener('touchstart', startDrag);
-document.addEventListener('touchmove', drag);
-document.addEventListener('touchend', stopDrag);
-
-function startDrag(e) {
-    isDragging = true;
-    const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-    const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
-    offsetX = clientX - draggable.getBoundingClientRect().left;
-    offsetY = clientY - draggable.getBoundingClientRect().top;
-    draggable.style.transition = 'none';
-    draggable.style.cursor = 'grabbing';
-}
-
-function drag(e) {
-    if (isDragging) {
-        const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-        const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
-        draggable.style.left = `${clientX - offsetX}px`;
-        draggable.style.top = `${clientY - offsetY}px`;
-    }
-}
-
-function stopDrag() {
-    isDragging = false;
-    draggable.style.cursor = 'grab';
-    snapToEdge();
-}
-
-function snapToEdge() {
-    const screenWidth = window.innerWidth;
-    const screenHeight = window.innerHeight;
-    const rect = draggable.getBoundingClientRect();
-
-    if (rect.left < screenWidth / 2) {
-        draggable.style.left = '10px';
-    } else {
-        draggable.style.left = `${screenWidth - rect.width - 10}px`;
-    }
-
-    if (rect.top < screenHeight / 2) {
-        draggable.style.top = '10px';
-    } else {
-        draggable.style.top = `${screenHeight - rect.height - 10}px`;
-    }
-
-    draggable.style.transition = '0.3s';
-}
-
+// ── URL decode ───────────────────────────────────────────────────────────────
 const params = new URLSearchParams(window.location.search);
-const iframeUrl = params.get("url");
-var decrypted = '';
-for (var i = 0; i < iframeUrl.length; i++) {
-    decrypted += String.fromCharCode(iframeUrl.charCodeAt(i) - 1);
+const iframeUrl = params.get('url');
+
+let iframeSrc = '';
+if (iframeUrl) {
+    let decrypted = '';
+    for (let i = 0; i < iframeUrl.length; i++)
+        decrypted += String.fromCharCode(iframeUrl.charCodeAt(i) - 1);
+    try {
+        iframeSrc = new URL(decrypted).href;
+    } catch {
+        iframeSrc = decrypted;
+    }
 }
-const url = new URL(decrypted);
-console.log(url.href);
-document.getElementById("myIframe").src = url.href;
 
-document.addEventListener("DOMContentLoaded", function () {
-    const iframe = document.getElementById('myIframe');
-    const fullscreenBtn = document.getElementById('fullscreenBtn');
-    const customAlert = document.getElementById('customAlert');
-    const overlay = document.getElementById('overlay');
-    let alertShown = false;
-    let isFullscreenEnabled = false;
-    let alertCount = 0;
+// ── Elements ─────────────────────────────────────────────────────────────────
+const iframe = document.getElementById('myIframe');
+const overlay = document.getElementById('overlay');
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+const btnRefresh = document.getElementById('btnRefresh');
+const btnFullscreen = document.getElementById('btnFullscreen');
+const btnExit = document.getElementById('btnExit');
+const iconExpand = document.getElementById('iconExpand');
+const iconCompress = document.getElementById('iconCompress');
+const clockEl = document.getElementById('clock');
+const batteryEl = document.getElementById('battery');
+const customAlert = document.getElementById('customAlert');
 
-    // if (localStorage.getItem("isBlocked") === "true" || !localStorage.getItem("isVerified")) {
-    //     alert("Anda tidak bisa mengakses halaman ini.");
-    //     window.location.href = "page.html";
-    //     return;
-    // }
+// ── Load iframe ──────────────────────────────────────────────────────────────
+if (iframeSrc) iframe.src = iframeSrc;
 
-    function enterFullscreen() {
-        if (document.documentElement.requestFullscreen) {
-            document.documentElement.requestFullscreen();
-        } else if (document.documentElement.mozRequestFullScreen) {
-            document.documentElement.mozRequestFullScreen();
-        } else if (document.documentElement.webkitRequestFullscreen) {
-            document.documentElement.webkitRequestFullscreen();
-        } else if (document.documentElement.msRequestFullscreen) {
-            document.documentElement.msRequestFullscreen();
-        }
-        isFullscreenEnabled = true;
-        fullscreenBtn.style.display = 'none';
-        overlay.style.display = 'none';
+// ── Real-time clock (24h HH:MM:SS) ──────────────────────────────────────────
+function updateClock() {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    clockEl.textContent = `${hh}:${mm}:${ss}`;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ── Battery API ──────────────────────────────────────────────────────────────
+async function initBattery() {
+    if (!navigator.getBattery) {
+        batteryEl.textContent = '🔋';
+        return;
     }
-
-    fullscreenBtn.addEventListener('click', function() {
-        if (!isFullscreenEnabled) {
-            enterFullscreen();
-        }
-    });
-
-    document.addEventListener('fullscreenchange', function() {
-        if (!document.fullscreenElement) {
-            customAlert.textContent = 'You have exited fullscreen mode. Please return for the best experience.';
-            resetFullscreenState();
-        }
-    });
-
-    document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'hidden' && isFullscreenEnabled) {
-            showAlert('You have lost focus on the page. Please return to fullscreen.');
-            alertCount++;
-
-            if (alertCount >= 1) {
-                localStorage.setItem("isBlocked", "true");
-                localStorage.setItem("isVerified", "false");
-                setTimeout(() => {
-                    window.location.href = "/ios/page.html";
-                }, 2000);
-            }
-        } else if (document.visibilityState === 'visible') {
-            customAlert.style.display = 'none';
-        }
-    });
-
-    function resetFullscreenState() {
-        isFullscreenEnabled = false;
-        fullscreenBtn.style.display = 'block';
-        overlay.style.display = 'flex';
+    try {
+        const bat = await navigator.getBattery();
+        const update = () => {
+            const pct = Math.round(bat.level * 100);
+            batteryEl.textContent = `${pct}%`;
+        };
+        update();
+        bat.addEventListener('levelchange', update);
+        bat.addEventListener('chargingchange', update);
+    } catch {
+        batteryEl.textContent = '–%';
     }
+}
+initBattery();
 
-    function showAlert(message) {
-        customAlert.textContent = message;
-        customAlert.style.display = 'block';
-        alertShown = true;
-    }
+// ── Fullscreen ───────────────────────────────────────────────────────────────
+let isFullscreen = false;
+let alertCount = 0;
 
-    document.addEventListener('click', function () {
-        if (alertShown) {
-            customAlert.style.display = 'none';
-            alertShown = false;
-        }
-    });
+function enterFullscreen() {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.mozRequestFullScreen ||
+        el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (req) req.call(el).catch(() => { });
+}
 
-    document.addEventListener('click', function (event) {
-        if (!isFullscreenEnabled && event.target !== fullscreenBtn) {
-            event.preventDefault();
-        }
-    });
+function exitFullscreen() {
+    const exit = document.exitFullscreen || document.mozCancelFullScreen ||
+        document.webkitExitFullscreen || document.msExitFullscreen;
+    if (exit) exit.call(document).catch(() => { });
+}
 
-    document.addEventListener('keydown', function (event) {
-        if (!isFullscreenEnabled) {
-            event.preventDefault();
-        }
-    });
+function syncFullscreenUI(fs) {
+    isFullscreen = fs;
+    iconExpand.style.display = fs ? 'none' : '';
+    iconCompress.style.display = fs ? '' : 'none';
+}
+
+// island fullscreen button — toggle
+btnFullscreen.addEventListener('click', () => {
+    document.fullscreenElement ? exitFullscreen() : enterFullscreen();
 });
 
-function checkDeviceAndBrowser() {
-    // Device and browser check disabled - allow all user agents
-    return;
-}
+// overlay "Go Fullscreen" button
+fullscreenBtn.addEventListener('click', () => {
+    overlay.style.display = 'none'; // Sembunyikan permanen setelah diklik
+    enterFullscreen();
+});
 
-window.onload = checkDeviceAndBrowser;
+document.addEventListener('fullscreenchange', () => {
+    const fs = !!document.fullscreenElement;
+    syncFullscreenUI(fs);
+
+    if (fs) {
+        overlay.style.display = 'none';
+    } else {
+        showAlert('Keluar dari fullscreen. Tekan tombol expand di atas untuk kembali.');
+    }
+});
+
+// ── Refresh ──────────────────────────────────────────────────────────────────
+btnRefresh.addEventListener('click', () => {
+    if (iframe.src) {
+        iframe.src = iframe.src; // reload
+    } else if (iframeSrc) {
+        iframe.src = iframeSrc;
+    }
+});
+
+// ── Exit (dummy — just go back) ───────────────────────────────────────────────
+btnExit.addEventListener('click', () => {
+    // dummy — navigate to page.html (soft exit)
+    window.location.href = '/ios/page.html';
+});
+
+// ── Visibility / focus guard ─────────────────────────────────────────────────
+// BAD CODE FOR EXAM 🤣🤣
+
+// document.addEventListener('visibilitychange', () => {
+//     if (document.visibilityState === 'hidden' && isFullscreen) {
+//         alertCount++;
+//         if (alertCount >= 1) {
+//             localStorage.setItem('isBlocked', 'true');
+//             localStorage.setItem('isVerified', 'false');
+//             setTimeout(() => { window.location.href = '/ios/page.html'; }, 2000);
+//         }
+//         showAlert('Anda meninggalkan halaman. Kembali ke fullscreen.');
+//     }
+// });
+
+// ── Alert helper ─────────────────────────────────────────────────────────────
+let alertTimer = null;
+function showAlert(msg) {
+    customAlert.textContent = msg;
+    customAlert.style.display = 'block';
+    clearTimeout(alertTimer);
+    alertTimer = setTimeout(() => { customAlert.style.display = 'none'; }, 3000);
+}
