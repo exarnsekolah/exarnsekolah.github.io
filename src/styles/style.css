@@ -1,24 +1,21 @@
 body {
-    margin: 0;
-    font-family: Arial, sans-serif;
+    font-family: monospace, sans-serif;
 }
 
 h1 {
-    color: #333;
+    color: #000;
 }
 
-.container {
-    padding: 20px;
+a {
+    display: block;
+    color: #0066cc;
+    text-decoration: underline;
 }
 
-.button {
-    background-color: #007bff;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    cursor: pointer;
+a:hover {
+    color: #0044aa;
 }
 
-.button:hover {
-    background-color: #0056b3;
+img {
+
 }

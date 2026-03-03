@@ -1,11 +1,10 @@
 {
-  "name": "webpack-web-project",
+  "name": "exsarnsekolah",
   "version": "1.0.0",
-  "description": "A basic web project using Webpack",
-  "main": "src/index.js",
+  "description": "",
   "scripts": {
-    "build": "webpack --mode production",
-    "start": "webpack serve --mode development"
+    "build": "cross-env NODE_ENV=production webpack",
+    "start": "webpack serve"
   },
   "dependencies": {
     "js-base64": "^3.7.8",
@@ -13,11 +12,15 @@
     "webpack": "^5.105.3"
   },
   "devDependencies": {
+    "copy-webpack-plugin": "^14.0.0",
+    "cross-env": "^10.1.0",
     "css-loader": "^7.1.4",
+    "html-loader": "^5.1.0",
     "html-webpack-plugin": "^5.6.6",
+    "mini-css-extract-plugin": "^2.10.0",
     "style-loader": "^4.0.0",
     "webpack-cli": "^4.9.2",
     "webpack-dev-server": "^4.7.0"
   },
-  "author": ""
+  "author": "exarnsekolah"
 }

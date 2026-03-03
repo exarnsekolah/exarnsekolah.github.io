@@ -1,9 +1,6 @@
-// This is the main JavaScript entry point for the application.
-// It initializes the application and may include logic to manipulate the DOM or handle events.
 import './styles/style.css';
 
-document.addEventListener('DOMContentLoaded', () => {
-    const app = document.createElement('div');
-    app.innerHTML = '<h1>Welcome to the Webpack Web Project!</h1>';
-    document.body.appendChild(app);
-});
+// Import images so webpack processes and emits them to dist/img/
+import csbanner from './img/csbanner.gif';
+import chrome from './img/chrome.gif';
+import buttonDevils from './img/button-devils.gif';
