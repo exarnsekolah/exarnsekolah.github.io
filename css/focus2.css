@@ -1,53 +1,155 @@
-html, body {
-    height: 100%;
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
     overflow: hidden;
+    background: #ffffff;
+    font-family: -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif;
+}
+
+/* ── Top bar ──────────────────────────────────────────────────────────────── */
+#topBar {
+    position: fixed;
+    /* Use env(safe-area-inset-top) for notch devices, fallback to 5px */
+    top: max(5px, env(safe-area-inset-top));
+    left: max(5px, env(safe-area-inset-left));
+    right: max(5px, env(safe-area-inset-right));
+    height: 48px;
+    background: #ffffff;
+    /* Removed border-radius as requested */
+    border-radius: 0;
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    z-index: 100;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
+}
+
+#clock {
+    font-size: 14px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    color: #111;
+    min-width: 68px;
+}
+
+#battery {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111;
+    min-width: 44px;
+    text-align: right;
+}
+
+/* ── Dynamic Island pill ─────────────────────────────────────────────────── */
+#island {
+    display: flex;
+    align-items: center;
+    /* Wider pill spacing */
+    gap: 16px;
+    background: #111;
+    border-radius: 999px;
+    /* Wider pill padding */
+    padding: 8px 20px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, .35);
+}
+
+#island button {
+    all: unset;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.18s, transform 0.12s;
+}
+
+#island button:hover {
+    background: rgba(255, 255, 255, .15);
+}
+
+#island button:active {
+    transform: scale(0.88);
+}
+
+#island button svg {
+    width: 15px;
+    height: 15px;
+    pointer-events: none;
+}
+
+/* ── Iframe wrapper ──────────────────────────────────────────────────────── */
+#frameWrap {
+    position: fixed;
+    /* dynamic top calculation: max safe-area-inset-top + 5px gap + 48px bar height */
+    top: calc(max(5px, env(safe-area-inset-top)) + 5px + 48px);
+    left: max(5px, env(safe-area-inset-left));
+    right: max(5px, env(safe-area-inset-right));
+    bottom: max(5px, env(safe-area-inset-bottom));
+    /* Minimal radius at the bottom to match the inset look */
+    border-radius: 0 0 4px 4px;
+    overflow: hidden;
+    z-index: 1;
+    background: #fff;
+}
+
+#myIframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}
+
+/* ── Overlay classes logic ───────────────────────────────────────────────── */
+/* Merged original overlay style with proper fixed centering */
+#overlay {
+    display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-}
-
-.draggable-circle {
-    width: 100px;
-    height: 100px;
-    background-image: url('https://i.ytimg.com/vi/pbKlUqT06_o/maxresdefault.jpg');
-    background-size: cover;
-    background-position: center;
-    border-radius: 50%;
     position: fixed;
-    top: 50px;
-    left: 50px;
-    cursor: grab;
-    z-index: 9999;
-    display: none;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    font-size: 24px;
+    z-index: 10000;
+    text-align: center;
 }
 
+/* Updated overlay button styling to match old styling but positioned below text */
 #fullscreenBtn {
-    position: absolute;
+    margin-top: 20px;
     padding: 10px 20px;
     background-color: #007bff;
     color: white;
     border: none;
     border-radius: 5px;
+    font-size: 16px;
     cursor: pointer;
     z-index: 10001;
 }
 
-button:hover {
+#fullscreenBtn:hover {
     background-color: #0056b3;
 }
 
-iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 1;
-}
-
+/* ── Custom alert ────────────────────────────────────────────────────────── */
 #customAlert {
     display: none;
     position: fixed;
@@ -61,20 +163,17 @@ iframe {
     border-radius: 10px;
     text-align: center;
     z-index: 10000;
+    animation: fadeUp 0.3s ease;
 }
 
-#overlay {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    color: white;
-    font-size: 24px;
-    z-index: 10000;
-}
+@keyframes fadeUp {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -40%);
+    }
 
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
+}
