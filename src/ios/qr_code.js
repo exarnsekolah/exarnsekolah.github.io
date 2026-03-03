@@ -1,186 +1,215 @@
 import './qr_code.css';
 
-// Check localStorage for verification
-// if (localStorage.getItem("isBlocked") === "true" || !localStorage.getItem("isVerified")) {
-//     alert("Anda Tidak bisa mengakses halaman ini.");
-//     window.location.href = "/ios/page.html";
-// }
-
-const video = document.querySelector("#preview");
-const cameraSelect = document.querySelector("#cameraSelect");
-const startButton = document.querySelector("#startButton");
-const scanner = document.querySelector("#scanner");
+const video = document.querySelector('#preview');
+const cameraSelect = document.querySelector('#cameraSelect');
+const startButton = document.querySelector('#startButton');
+const scanner = document.querySelector('#scanner');
+const statusMsg = document.querySelector('#statusMsg');
 
 let currentStream = null;
 let isScanning = false;
+let camerasLoaded = false;
 
-// Update button text on first access
-const firstAccess = !localStorage.getItem("cameraAccessGranted");
-if (firstAccess) {
-    startButton.innerText = "Aktifkan Kamera";
+// ── UI helpers ──────────────────────────────────────────────────────────────
+
+function setStatus(text, type = 'info') {
+    // type: 'info' | 'success' | 'error' | 'loading'
+    if (!statusMsg) return;
+    const icons = { info: '📷', success: '✅', error: '❌', loading: '⏳' };
+    statusMsg.textContent = `${icons[type]} ${text}`;
+    statusMsg.className = 'status-msg status-' + type;
+    statusMsg.style.display = 'block';
 }
 
-// Load available cameras after requesting permission
+function hideStatus() {
+    if (statusMsg) statusMsg.style.display = 'none';
+}
+
+function setButtonReady(ready) {
+    startButton.disabled = !ready;
+    startButton.innerHTML = ready
+        ? '<i class="fas fa-camera"></i> Aktifkan Kamera'
+        : '<i class="fas fa-spinner fa-spin"></i> Memuat…';
+}
+
+// ── Camera loader ───────────────────────────────────────────────────────────
+
 async function loadCameras() {
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
-        const existingCameraIds = Array.from(cameraSelect.options).map(option => option.value);
+        const existing = Array.from(cameraSelect.options).map(o => o.value);
 
-        devices.forEach((device) => {
-            if (device.kind === 'videoinput' && !existingCameraIds.includes(device.deviceId)) {
-                const option = document.createElement("option");
-                option.value = device.deviceId;
-                option.text = device.label || `Kamera ${cameraSelect.length + 1}`;
-                cameraSelect.appendChild(option);
+        devices.forEach(device => {
+            if (device.kind === 'videoinput' && !existing.includes(device.deviceId)) {
+                const opt = document.createElement('option');
+                opt.value = device.deviceId;
+                opt.text = device.label || `Kamera ${cameraSelect.length + 1}`;
+                cameraSelect.appendChild(opt);
             }
         });
 
         if (cameraSelect.options.length > 0) {
             cameraSelect.selectedIndex = 0;
+            camerasLoaded = true;
+            setButtonReady(true);
+            setStatus('Kamera siap. Tekan tombol untuk mulai scan.', 'success');
         } else {
-            alert("Tidak ada kamera ditemukan.");
+            setStatus('Tidak ada kamera ditemukan.', 'error');
         }
-    } catch (error) {
-        console.error("Error loading cameras: ", error);
-        alert("Gagal memuat daftar kamera. Periksa izin akses kamera.");
+    } catch (err) {
+        console.error('loadCameras:', err);
+        setStatus('Gagal memuat daftar kamera.', 'error');
     }
 }
 
-// Start scanning with selected camera
-async function startScanner() {
-    const deviceId = cameraSelect.value;
-    
-    if (!deviceId) {
-        alert("Silakan pilih kamera terlebih dahulu");
+// ── Permission request ──────────────────────────────────────────────────────
+
+async function requestPermissionAndLoad() {
+    setStatus('Meminta izin kamera…', 'loading');
+    setButtonReady(false);
+
+    try {
+        // Request permission — we open then immediately stop the stream
+        const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        tempStream.getTracks().forEach(t => t.stop());
+        localStorage.setItem('cameraAccessGranted', 'true');
+        await loadCameras();
+    } catch (err) {
+        console.error('requestPermissionAndLoad:', err);
+        if (err.name === 'NotAllowedError') {
+            setStatus('Izin kamera ditolak. Ubah pengaturan browser.', 'error');
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+            setStatus('Tidak ada kamera ditemukan.', 'error');
+        } else {
+            setStatus('Kesalahan: ' + err.message, 'error');
+        }
+        setButtonReady(false); // keep disabled if denied
+    }
+}
+
+// ── Auto-init on page load ──────────────────────────────────────────────────
+
+async function init() {
+    setButtonReady(false); // disable until cameras are ready
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus('Browser tidak mendukung akses kamera.', 'error');
         return;
     }
 
-    const constraints = {
-        video: { deviceId: { exact: deviceId } }
-    };
+    // Check if permission already granted via Permissions API (modern browsers)
+    if (navigator.permissions) {
+        try {
+            const perm = await navigator.permissions.query({ name: 'camera' });
+            if (perm.state === 'granted') {
+                // Already granted — silently load cameras
+                setStatus('Mendeteksi kamera…', 'loading');
+                await loadCameras();
+                // Listen for future permission changes
+                perm.onchange = () => {
+                    if (perm.state === 'denied') setStatus('Izin kamera dicabut.', 'error');
+                };
+                return;
+            } else if (perm.state === 'denied') {
+                setStatus('Izin kamera ditolak. Buka pengaturan browser untuk mengizinkan.', 'error');
+                return;
+            }
+            // perm.state === 'prompt' — fall through to request
+        } catch {
+            // Permissions API not supported fully — fall through
+        }
+    }
+
+    // 'prompt' or Permissions API not supported: request permission automatically
+    await requestPermissionAndLoad();
+}
+
+// ── Scanner ─────────────────────────────────────────────────────────────────
+
+async function startScanner() {
+    const deviceId = cameraSelect.value;
+    if (!deviceId) {
+        setStatus('Pilih kamera terlebih dahulu.', 'error');
+        return;
+    }
 
     try {
-        // Stop existing stream
-        if (currentStream) {
-            currentStream.getTracks().forEach(track => track.stop());
-        }
+        if (currentStream) currentStream.getTracks().forEach(t => t.stop());
 
-        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        currentStream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: { exact: deviceId } }
+        });
         video.srcObject = currentStream;
-        scanner.style.display = "block";
+        scanner.style.display = 'block';
         isScanning = true;
 
-        video.onloadedmetadata = () => {
-            requestAnimationFrame(scanQRCode);
-        };
+        video.onloadedmetadata = () => requestAnimationFrame(scanQRCode);
 
-        // Update button text after first activation
-        startButton.innerText = "Mulai Pemindaian";
-        localStorage.setItem("cameraAccessGranted", "true");
-    } catch (error) {
-        console.error("Error accessing camera: ", error);
-        if (error.name === "OverconstrainedError") {
-            alert("Kamera tidak tersedia. Coba kamera lain.");
-        } else if (error.name === "NotAllowedError") {
-            alert("Akses kamera ditolak. Periksa pengaturan izin browser Anda.");
-        } else {
-            alert("Terjadi kesalahan saat mengakses kamera. Coba lagi.");
-        }
+        startButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning…';
+        startButton.disabled = true;
+        hideStatus();
+    } catch (err) {
+        console.error('startScanner:', err);
+        const msg = {
+            OverconstrainedError: 'Kamera tidak tersedia. Coba kamera lain.',
+            NotAllowedError: 'Akses kamera ditolak.',
+        }[err.name] || 'Terjadi kesalahan saat mengakses kamera.';
+        setStatus(msg, 'error');
     }
 }
 
-// Scan QR code from video feed
-async function scanQRCode() {
+// ── QR scan loop ─────────────────────────────────────────────────────────────
+
+function scanQRCode() {
     if (!isScanning || !video.videoWidth || !video.videoHeight) {
-        requestAnimationFrame(scanQRCode);
+        if (isScanning) requestAnimationFrame(scanQRCode);
         return;
     }
 
     const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-
+    const ctx = canvas.getContext('2d');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
 
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const code = jsQR(imageData.data, canvas.width, canvas.height);
 
     if (code) {
         let url = code.data;
-        
-        // Decode base64
         try {
-            for (let i = 0; i < 5; i++) {
-                url = atob(url);
-            }
-        } catch (e) {
-            // URL tidak terenkripsi base64, gunakan sebagaimana adanya
-        }
+            for (let i = 0; i < 5; i++) url = atob(url);
+        } catch { /* not base64, use as-is */ }
 
         if (isValidURL(url)) {
             isScanning = false;
-            await localStorage.removeItem("isBlocked");
-            await localStorage.removeItem("alertShown");
-            
-            // Encrypt URL
-            var encrypted = '';
-            for (var i = 0; i < url.length; i++) {
+            localStorage.removeItem('isBlocked');
+            localStorage.removeItem('alertShown');
+
+            let encrypted = '';
+            for (let i = 0; i < url.length; i++)
                 encrypted += String.fromCharCode(url.charCodeAt(i) + 1);
-            }
-            
+
             window.location.href = '/ios/focus2.html?url=' + encodeURIComponent(encrypted);
+            return;
         } else {
-            console.warn("QR Code tidak berisi URL valid:", code.data);
+            console.warn('QR bukan URL valid:', code.data);
         }
     }
 
     requestAnimationFrame(scanQRCode);
 }
 
-// Validate URL
-function isValidURL(string) {
-    try {
-        new URL(string);
-        return true;
-    } catch (e) {
-        return false;
-    }
+function isValidURL(str) {
+    try { new URL(str); return true; } catch { return false; }
 }
 
-// Request camera permission and load cameras
-startButton.addEventListener('click', () => {
-    navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => {
-            // Close the stream immediately, we just needed permission
-            stream.getTracks().forEach(track => track.stop());
-            
-            // Now load available cameras
-            loadCameras();
-            
-            // Start scanning with selected camera
-            startScanner();
-        })
-        .catch(error => {
-            console.error("Kesalahan akses kamera: ", error);
-            if (error.name === "NotAllowedError") {
-                alert("Izin kamera ditolak. Silakan ubah pengaturan browser Anda.");
-            } else if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
-                alert("Tidak ada kamera ditemukan.");
-            } else {
-                alert("Terjadi kesalahan: " + error.message);
-            }
-        });
+// ── Events ───────────────────────────────────────────────────────────────────
+
+startButton.addEventListener('click', startScanner);
+cameraSelect.addEventListener('change', () => {
+    if (camerasLoaded) startScanner();
 });
 
-// Change camera when dropdown changes
-cameraSelect.addEventListener('change', startScanner);
-
-// Check device and browser compatibility
-function checkDeviceAndBrowser() {
-    // Device and browser check disabled - allow all user agents
-    return;
-}
-
-// Run checks on page load
-window.onload = checkDeviceAndBrowser;
+// Kick off auto-permission on load
+window.addEventListener('DOMContentLoaded', init);

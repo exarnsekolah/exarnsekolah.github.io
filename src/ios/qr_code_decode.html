@@ -7,7 +7,52 @@
     <title>QR Decode - ExarnSekolah</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        /* Result box styles – appended on top of qr_code.css */
+        .status-msg {
+            display: none;
+            margin: 10px 0;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.88em;
+            text-align: left;
+            transition: all 0.3s ease;
+        }
+
+        .status-info {
+            background: #eef0ff;
+            color: #4e54c8;
+            border: 1px solid #c5c8f8;
+        }
+
+        .status-success {
+            background: #e8f8ee;
+            color: #2d8653;
+            border: 1px solid #a8dab5;
+        }
+
+        .status-error {
+            background: #ffeef0;
+            color: #c0392b;
+            border: 1px solid #f5c0bb;
+        }
+
+        .status-loading {
+            background: #fff8e1;
+            color: #b07a00;
+            border: 1px solid #ffe082;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .fa-spin {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Result box */
         #resultBox {
             display: none;
             margin-top: 16px;
@@ -83,24 +128,23 @@
             cursor: default;
             transform: none;
         }
-
-        #decodeSteps {
-            margin-bottom: 2px;
-        }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h1><i class="fas fa-qrcode"></i> Scan & Decode QR</h1>
+        <h1><i class="fas fa-qrcode"></i> Scan &amp; Decode QR</h1>
         <select id="cameraSelect"></select>
-        <button id="startButton"><i class="fas fa-camera"></i> Aktifkan Kamera</button>
+        <div id="statusMsg" class="status-msg"></div>
+        <button id="startButton" disabled>
+            <i class="fas fa-spinner fa-spin"></i> Memuat…
+        </button>
 
         <div id="scanner" style="display: none;">
             <video id="preview" autoplay playsinline></video>
         </div>
 
-        <!-- Result box – muncul setelah scan berhasil -->
+        <!-- Result box — muncul setelah scan berhasil -->
         <div id="resultBox">
             <h3><i class="fas fa-unlock-alt"></i> Hasil Decode</h3>
             <div id="decodeSteps"></div>
